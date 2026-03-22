@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment — contains your IP and secrets
+.env
+
+# ChromaDB vector database — rebuilt by running make index
+chroma_db/
+
+# Logs
+*.log
