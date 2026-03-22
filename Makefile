@@ -1,4 +1,4 @@
-.PHONY: help setup check index update-index start query clean
+.PHONY: help setup check index update-index start query clean mcp-config
 
 PYTHON = .venv/bin/python
 PIP    = .venv/bin/pip
@@ -19,6 +19,9 @@ help:
 	@echo "  Running"
 	@echo "    make start          Start the RAG API server (Open WebUI endpoint)"
 	@echo "    make query Q=\"...\"  Run a one-off query from the terminal"
+	@echo ""
+	@echo "  MCP (Claude Code integration)"
+	@echo "    make mcp-config     Print config snippet for ~/.claude/settings.json"
 	@echo ""
 	@echo "  Maintenance"
 	@echo "    make clean          Delete the ChromaDB vector database"
@@ -61,6 +64,17 @@ ifndef Q
 else
 	$(PYTHON) query_rag.py "$(Q)"
 endif
+
+# ── MCP config ────────────────────────────────────────────────────────────────
+mcp-config:
+	@echo ""
+	@echo "Add this to ~/.claude/settings.json under \"mcpServers\":"
+	@echo ""
+	@echo "  \"pdf-rag\": {"
+	@echo "    \"command\": \"$(shell pwd)/.venv/bin/python\","
+	@echo "    \"args\": [\"$(shell pwd)/mcp_server.py\"]"
+	@echo "  }"
+	@echo ""
 
 # ── Maintenance ───────────────────────────────────────────────────────────────
 clean:
