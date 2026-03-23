@@ -1,5 +1,4 @@
 """Tests for rag_api.py helper functions."""
-import pytest
 from llama_index.core.llms import MessageRole
 
 

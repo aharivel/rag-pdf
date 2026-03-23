@@ -77,12 +77,17 @@ def _build_chat_history(
     Returns (chat_history, last_user_message) where chat_history
     contains all turns except the final user message.
     """
+    if not messages:
+        raise ValueError("messages list must not be empty")
     role_map = {
         "user": MessageRole.USER,
         "assistant": MessageRole.ASSISTANT,
     }
     chat_history = [
-        ChatMessage(role=role_map[m["role"]], content=m["content"])
+        ChatMessage(
+            role=role_map.get(m["role"], MessageRole.USER),
+            content=m["content"],
+        )
         for m in messages[:-1]
     ]
     last_user_msg = messages[-1]["content"]
