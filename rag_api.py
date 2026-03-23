@@ -85,13 +85,12 @@ def _build_chat_history(
         "user": MessageRole.USER,
         "assistant": MessageRole.ASSISTANT,
     }
-    chat_history = [
-        ChatMessage(
-            role=role_map.get(m["role"], MessageRole.USER),
-            content=m["content"],
-        )
-        for m in messages[:-1]
-    ]
+    chat_history = []
+    for m in messages[:-1]:
+        role = role_map.get(m["role"])
+        if role is None:
+            raise ValueError(f"Unknown message role: {m['role']!r}")
+        chat_history.append(ChatMessage(role=role, content=m["content"]))
     last_user_msg = messages[-1]["content"]
     return chat_history, last_user_msg
 
@@ -218,6 +217,7 @@ def chat_stream(request: ChatRequest):
         chat_engine = index.as_chat_engine(
             chat_mode="condense_plus_context",
             streaming=True,
+            similarity_top_k=config.TOP_K,
         )
 
         try:
@@ -242,6 +242,7 @@ def chat_stream(request: ChatRequest):
 
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            return
 
         finally:
             yield "data: [DONE]\n\n"
