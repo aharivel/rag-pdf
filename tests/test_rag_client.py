@@ -99,7 +99,7 @@ async def test_send_message_streams_tokens():
 
 @pytest.mark.asyncio
 async def test_send_message_connect_error():
-    """ConnectError yields an error dict and does not crash."""
+    """ConnectError yields an error dict, rolls back history, and does not crash."""
     from rag_client import RagClient
     import httpx
     from unittest.mock import patch
@@ -120,3 +120,63 @@ async def test_send_message_connect_error():
     assert len(results) == 1
     assert "error" in results[0]
     assert "Cannot reach RAG API" in results[0]["error"]
+    assert client.conversation_history == []  # rolled back
+
+
+@pytest.mark.asyncio
+async def test_send_message_connect_timeout():
+    """ConnectTimeout yields an error dict and rolls back history."""
+    from rag_client import RagClient
+    import httpx
+    from unittest.mock import patch
+
+    client = RagClient(base_url="http://fake:9999")
+
+    class FakeStream:
+        async def __aenter__(self):
+            raise httpx.ConnectTimeout("timed out")
+        async def __aexit__(self, *a):
+            pass
+
+    with patch.object(client._http, "stream", return_value=FakeStream()):
+        results = []
+        async for item in client.send_message("hi"):
+            results.append(item)
+
+    assert len(results) == 1
+    assert "error" in results[0]
+    assert "timed out" in results[0]["error"].lower()
+    assert client.conversation_history == []
+
+
+@pytest.mark.asyncio
+async def test_send_message_non_200():
+    """Non-200 response yields an error dict and rolls back history."""
+    from rag_client import RagClient
+    from unittest.mock import MagicMock, patch
+
+    async def fake_aiter_lines():
+        return
+        yield  # make it an async generator
+
+    mock_response = MagicMock()
+    mock_response.status_code = 503
+    mock_response.aiter_lines = fake_aiter_lines
+
+    class FakeStream:
+        async def __aenter__(self):
+            return mock_response
+        async def __aexit__(self, *a):
+            pass
+
+    client = RagClient(base_url="http://fake:9999")
+
+    with patch.object(client._http, "stream", return_value=FakeStream()):
+        results = []
+        async for item in client.send_message("hi"):
+            results.append(item)
+
+    assert len(results) == 1
+    assert "error" in results[0]
+    assert "503" in results[0]["error"]
+    assert client.conversation_history == []  # rolled back

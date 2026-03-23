@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 import httpx
 
@@ -49,7 +49,7 @@ class RagClient:
         """Reset conversation history (used by /clear command)."""
         self.conversation_history.clear()
 
-    async def send_message(self, text: str) -> AsyncIterator[str | dict]:
+    async def send_message(self, text: str) -> AsyncGenerator[str | dict, None]:
         """Send a message and stream the response.
 
         Yields:
@@ -67,8 +67,8 @@ class RagClient:
                 json={"messages": self.conversation_history},
             ) as response:
                 if response.status_code != 200:
+                    self.conversation_history.pop()  # roll back before yield
                     yield {"error": f"LLM unavailable (HTTP {response.status_code})"}
-                    self.conversation_history.pop()  # roll back user message
                     return
 
                 async for line in response.aiter_lines():
@@ -85,16 +85,17 @@ class RagClient:
                         break
 
         except httpx.ConnectError:
+            self.conversation_history.pop()  # roll back before yield
             yield {"error": "Cannot reach RAG API — is rag_api.py running?"}
-            self.conversation_history.pop()
             return
         except httpx.ConnectTimeout:
+            self.conversation_history.pop()  # roll back before yield
             yield {"error": "Connection timed out — is rag_api.py running?"}
-            self.conversation_history.pop()
             return
         except httpx.RemoteProtocolError:
+            if not accumulated:
+                self.conversation_history.pop()  # no partial reply to preserve
             yield {"error": "Stream interrupted — partial response shown"}
-            # Keep partial accumulated text in history
 
         if accumulated:
             self.conversation_history.append(
