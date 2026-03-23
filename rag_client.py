@@ -5,7 +5,6 @@ Does not import anything from textual.
 """
 from __future__ import annotations
 
-import inspect
 import json
 import os
 from collections.abc import AsyncIterator
@@ -62,16 +61,11 @@ class RagClient:
         accumulated = ""
 
         try:
-            stream_ctx = self._http.stream(
+            async with self._http.stream(
                 "POST",
                 "/v1/chat/completions/stream",
                 json={"messages": self.conversation_history},
-            )
-            # In tests, the mock side_effect may be an async function, yielding
-            # a coroutine instead of a context manager — await it if needed.
-            if inspect.iscoroutine(stream_ctx):
-                stream_ctx = await stream_ctx
-            async with stream_ctx as response:
+            ) as response:
                 if response.status_code != 200:
                     yield {"error": f"LLM unavailable (HTTP {response.status_code})"}
                     self.conversation_history.pop()  # roll back user message

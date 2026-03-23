@@ -72,12 +72,12 @@ async def test_send_message_streams_tokens():
     mock_response.aiter_lines = fake_aiter_lines
 
     class FakeStream:
-        async def __aenter__(self_inner):
+        async def __aenter__(self):
             return mock_response
-        async def __aexit__(self_inner, *a):
+        async def __aexit__(self, *a):
             pass
 
-    async def fake_stream(*args, **kwargs):
+    def fake_stream(*args, **kwargs):
         return FakeStream()
 
     client = RagClient(base_url="http://fake:9999")
