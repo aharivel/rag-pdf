@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from llama_index.core import VectorStoreIndex, StorageContext, Settings
+from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.llms.ollama import Ollama
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -66,6 +67,26 @@ def get_index():
         )
         print(f"Index loaded. {chroma_collection.count()} chunks available.")
     return _index
+
+
+def _build_chat_history(
+    messages: list[dict],
+) -> tuple[list[ChatMessage], str]:
+    """Convert request messages to LlamaIndex ChatMessage history.
+
+    Returns (chat_history, last_user_message) where chat_history
+    contains all turns except the final user message.
+    """
+    role_map = {
+        "user": MessageRole.USER,
+        "assistant": MessageRole.ASSISTANT,
+    }
+    chat_history = [
+        ChatMessage(role=role_map[m["role"]], content=m["content"])
+        for m in messages[:-1]
+    ]
+    last_user_msg = messages[-1]["content"]
+    return chat_history, last_user_msg
 
 
 # ── OpenAI-compatible models ──────────────────────────────────────────────────
