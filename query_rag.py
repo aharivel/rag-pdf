@@ -25,11 +25,11 @@ console = Console()
 def load_index():
     Settings.embed_model = OllamaEmbedding(
         model_name=config.EMBED_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
+        base_url=config.OLLAMA_EMBED_URL,
     )
     Settings.llm = Ollama(
         model=config.LLM_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
+        base_url=config.OLLAMA_LLM_URL,
         request_timeout=120.0,
     )
 

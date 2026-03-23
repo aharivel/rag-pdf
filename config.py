@@ -6,9 +6,11 @@ from dotenv import load_dotenv
 _HERE = Path(__file__).parent
 load_dotenv(_HERE / ".env")
 
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://192.168.1.XXX:11434")
-LLM_MODEL       = os.getenv("LLM_MODEL", "qwen3:8b")
-EMBED_MODEL     = os.getenv("EMBED_MODEL", "nomic-embed-text-v2-moe")
+# Separate URLs so LLM and embeddings can run on different machines
+OLLAMA_LLM_URL   = os.getenv("OLLAMA_LLM_URL",   "http://192.168.1.XXX:11434")
+OLLAMA_EMBED_URL = os.getenv("OLLAMA_EMBED_URL",  "http://localhost:11434")
+LLM_MODEL        = os.getenv("LLM_MODEL",   "qwen3:8b")
+EMBED_MODEL       = os.getenv("EMBED_MODEL", "nomic-embed-text-v2-moe")
 CHROMA_PATH     = os.getenv("CHROMA_PATH", str(_HERE / "chroma_db"))
 CHROMA_COLLECTION = "pdf_knowledge"
 TOP_K           = int(os.getenv("TOP_K", "5"))

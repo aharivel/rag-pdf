@@ -28,12 +28,12 @@ console = Console()
 def setup_settings():
     Settings.embed_model = OllamaEmbedding(
         model_name=config.EMBED_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
+        base_url=config.OLLAMA_EMBED_URL,
         embed_batch_size=config.EMBED_BATCH_SIZE,
     )
     Settings.llm = Ollama(
         model=config.LLM_MODEL,
-        base_url=config.OLLAMA_BASE_URL,
+        base_url=config.OLLAMA_LLM_URL,
         request_timeout=120.0,
     )
     Settings.node_parser = SentenceSplitter(

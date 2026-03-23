@@ -43,11 +43,11 @@ def get_index():
         print(f"Loading index from {config.CHROMA_PATH}...")
         Settings.embed_model = OllamaEmbedding(
             model_name=config.EMBED_MODEL,
-            base_url=config.OLLAMA_BASE_URL,
+            base_url=config.OLLAMA_EMBED_URL,
         )
         Settings.llm = Ollama(
             model=config.LLM_MODEL,
-            base_url=config.OLLAMA_BASE_URL,
+            base_url=config.OLLAMA_LLM_URL,
             request_timeout=120.0,
         )
 
@@ -93,7 +93,8 @@ def root():
 def health():
     return {
         "status": "ok",
-        "ollama": config.OLLAMA_BASE_URL,
+        "ollama_llm": config.OLLAMA_LLM_URL,
+        "ollama_embed": config.OLLAMA_EMBED_URL,
         "model": config.LLM_MODEL,
         "embed_model": config.EMBED_MODEL,
         "pdf_dir": config.PDF_DIR,

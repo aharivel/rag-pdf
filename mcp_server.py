@@ -39,13 +39,13 @@ def get_retriever():
     if _retriever is None:
         Settings.embed_model = OllamaEmbedding(
             model_name=config.EMBED_MODEL,
-            base_url=config.OLLAMA_BASE_URL,
+            base_url=config.OLLAMA_EMBED_URL,
             embed_batch_size=config.EMBED_BATCH_SIZE,
         )
         # LLM is set but won't be called — we use retriever only
         Settings.llm = Ollama(
             model=config.LLM_MODEL,
-            base_url=config.OLLAMA_BASE_URL,
+            base_url=config.OLLAMA_LLM_URL,
         )
 
         chroma_client = chromadb.PersistentClient(path=config.CHROMA_PATH)

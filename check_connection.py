@@ -1,47 +1,57 @@
 """
-Run this first to verify your Windows PC Ollama is reachable and models are available.
+Run this first to verify both Ollama instances are reachable and models are available.
 Usage: python check_connection.py
 """
 import httpx
 import sys
 import config
 
-def check():
-    print(f"\nChecking Ollama at {config.OLLAMA_BASE_URL} ...\n")
+
+def check_ollama(url: str, models_needed: list[str], label: str) -> bool:
+    print(f"\nChecking {label} Ollama at {url} ...")
 
     try:
-        r = httpx.get(f"{config.OLLAMA_BASE_URL}/api/tags", timeout=5)
+        r = httpx.get(f"{url}/api/tags", timeout=5)
         r.raise_for_status()
     except httpx.ConnectError:
-        print(f"  [FAIL] Cannot reach {config.OLLAMA_BASE_URL}")
-        print("         → Is Ollama running on your Windows PC?")
-        print("         → Is OLLAMA_HOST=0.0.0.0 set on Windows?")
-        print("         → Is port 11434 allowed in Windows Firewall?")
-        sys.exit(1)
+        print(f"  [FAIL] Cannot reach {url}")
+        if "192.168" in url:
+            print("         → Is Ollama running on your Windows PC?")
+            print("         → Is OLLAMA_HOST=0.0.0.0 set on Windows?")
+            print("         → Is port 11434 allowed in Windows Firewall?")
+        else:
+            print("         → Is local Ollama running? (podman start ollama)")
+        return False
     except Exception as e:
         print(f"  [FAIL] Unexpected error: {e}")
-        sys.exit(1)
+        return False
 
-    print(f"  [OK]  Ollama is reachable")
+    print(f"  [OK]  Reachable")
+    available = [m["name"] for m in r.json().get("models", [])]
 
-    models = [m["name"] for m in r.json().get("models", [])]
-    print(f"\nAvailable models: {models}\n")
-
-    missing = []
-    for model in [config.LLM_MODEL, config.EMBED_MODEL]:
-        # Match by prefix (e.g. "llama3.1:8b" matches "llama3.1:8b-instruct-q4_K_M")
-        found = any(m.startswith(model.split(":")[0]) for m in models)
+    ok = True
+    for model in models_needed:
+        found = any(m.startswith(model.split(":")[0]) for m in available)
         if found:
-            print(f"  [OK]  {model} found")
+            print(f"  [OK]  {model}")
         else:
-            print(f"  [MISSING] {model} — run on Windows PC: ollama pull {model}")
-            missing.append(model)
+            print(f"  [MISSING] {model}  →  ollama pull {model}")
+            ok = False
 
-    if missing:
-        print(f"\n  Pull missing models on Windows PC then re-run this check.")
+    return ok
+
+
+def check():
+    llm_ok    = check_ollama(config.OLLAMA_LLM_URL,   [config.LLM_MODEL],   "LLM  ")
+    embed_ok  = check_ollama(config.OLLAMA_EMBED_URL,  [config.EMBED_MODEL], "Embed")
+
+    print()
+    if llm_ok and embed_ok:
+        print("  All good! You can now run index_pdfs.py\n")
+    else:
+        print("  Fix the issues above then re-run this check.\n")
         sys.exit(1)
 
-    print("\n  All good! You can now run index_pdfs.py\n")
 
 if __name__ == "__main__":
     check()
