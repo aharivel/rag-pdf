@@ -7,6 +7,7 @@ Usage:
   → API available at http://localhost:8000
   → Add to Open WebUI as OpenAI connection: http://localhost:8000
 """
+import json
 import time
 import uuid
 
@@ -14,6 +15,7 @@ import chromadb
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -188,6 +190,63 @@ def chat(request: ChatRequest):
         ],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
     }
+
+
+@app.post("/v1/chat/completions/stream")
+def chat_stream(request: ChatRequest):
+    """Streaming SSE endpoint for the Textual chat app.
+
+    SSE event contract (always ends with [DONE]):
+    - Success: {"token": "..."} × N, {"sources": [...]}, [DONE]
+    - Error:   {"token": "..."} × 0..N, {"error": "..."}, [DONE]
+    """
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="No messages provided")
+
+    chat_history, last_user_msg = _build_chat_history(
+        [{"role": m.role, "content": m.content} for m in request.messages]
+    )
+
+    def generate():
+        try:
+            index = get_index()
+        except RuntimeError as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        chat_engine = index.as_chat_engine(
+            chat_mode="condense_plus_context",
+            streaming=True,
+        )
+
+        try:
+            streaming_response = chat_engine.stream_chat(
+                last_user_msg,
+                chat_history=chat_history,
+            )
+
+            for token in streaming_response.response_gen:
+                yield f"data: {json.dumps({'token': token})}\n\n"
+
+            # Emit sources after all tokens
+            sources = []
+            seen = set()
+            for node in streaming_response.source_nodes:
+                fname = node.metadata.get("file_name", "")
+                score = round(node.score or 0, 3)
+                if fname and fname not in seen:
+                    seen.add(fname)
+                    sources.append({"file": fname, "score": score})
+            yield f"data: {json.dumps({'sources': sources})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+        finally:
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":
