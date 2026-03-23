@@ -1,4 +1,4 @@
-.PHONY: help setup check index update-index start query clean mcp-config
+.PHONY: help setup check index update-index start query clean mcp-config chat test
 
 PYTHON = .venv/bin/python
 PIP    = .venv/bin/pip
@@ -18,7 +18,9 @@ help:
 	@echo ""
 	@echo "  Running"
 	@echo "    make start          Start the RAG API server (Open WebUI endpoint)"
+	@echo "    make chat           Start the Textual RAG chat TUI"
 	@echo "    make query Q=\"...\"  Run a one-off query from the terminal"
+	@echo "    make test           Run all unit tests"
 	@echo ""
 	@echo "  MCP (Claude Code integration)"
 	@echo "    make mcp-config     Print config snippet for ~/.claude/settings.json"
@@ -75,6 +77,16 @@ mcp-config:
 	@echo "    \"args\": [\"$(shell pwd)/mcp_server.py\"]"
 	@echo "  }"
 	@echo ""
+
+# ── Chat TUI ──────────────────────────────────────────────────────────────────
+chat:
+	@echo "Starting PDF RAG Chat TUI..."
+	@echo "Tip: make sure 'make start' is running in another terminal."
+	$(PYTHON) chat_app.py
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+test:
+	$(PYTHON) -m pytest tests/ -v
 
 # ── Maintenance ───────────────────────────────────────────────────────────────
 clean:
