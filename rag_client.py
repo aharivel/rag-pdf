@@ -74,7 +74,7 @@ class RagClient:
         path = Path(chats_dir)
         path.mkdir(exist_ok=True)
         model_slug = (
-            self.session_log[0]["stats"]["model"].replace(":", "-")
+            self.session_log[0]["stats"]["model"].replace(":", "-").replace("/", "-")
             if self.session_log else "unknown"
         )
         ts = self.started_at.strftime("%Y-%m-%d_%H-%M-%S")
