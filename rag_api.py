@@ -52,7 +52,7 @@ def get_index():
             model=config.LLM_MODEL,
             base_url=config.OLLAMA_LLM_URL,
             request_timeout=120.0,
-            context_window=config.OLLAMA_NUM_CTX,
+            context_window=config.get_num_ctx(config.LLM_MODEL),
         )
 
         chroma_client = chromadb.PersistentClient(path=config.CHROMA_PATH)
@@ -236,7 +236,7 @@ def chat_stream(request: ChatRequest):
                 model=active_model,
                 base_url=config.OLLAMA_LLM_URL,
                 request_timeout=120.0,
-                context_window=config.OLLAMA_NUM_CTX,
+                context_window=config.get_num_ctx(active_model),
             )
             if request.llm_model else None
         )
