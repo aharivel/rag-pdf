@@ -91,7 +91,7 @@ class RagChatApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield VerticalScroll(id="history")
-        yield Input(placeholder="Ask your PDF library… (/clear to reset, /quit to exit)")
+        yield Input(placeholder="Ask your PDF library… (/clear  /save  /quit)")
 
     def on_mount(self) -> None:
         self.query_one(Input).focus()
@@ -106,8 +106,11 @@ class RagChatApp(App):
         if text == "/clear":
             await self._do_clear()
             return
+        if text == "/save":
+            await self._do_save()
+            return
         if text == "/quit":
-            self.exit()
+            await self._do_quit()
             return
 
         await self._submit_query(text)
@@ -130,10 +133,24 @@ class RagChatApp(App):
         history = self.query_one("#history", VerticalScroll)
         await history.remove_children()
 
+    async def _do_save(self) -> None:
+        if not self._client.session_log:
+            self.notify("Nothing to save yet.", severity="warning")
+            return
+        path = self._client.save_session()
+        self.notify(f"Saved → {path}", timeout=6)
+
+    async def _do_quit(self) -> None:
+        if self._client.session_log:
+            self._client.save_session()
+        self.exit()
+
     @work
     async def _stream(self, text: str, bubble: Markdown) -> None:
         history = self.query_one("#history", VerticalScroll)
-        accumulated = ""
+        accumulated = ""   # display text (tokens + formatted sources)
+        answer_text = ""   # clean LLM answer only (saved to log)
+        sources_raw: list[dict] = []
         last_render = time.monotonic()
         RENDER_INTERVAL = 0.05  # 50ms → ~20 fps
         stats: dict | None = None
@@ -141,6 +158,7 @@ class RagChatApp(App):
         async for item in self._client.send_message(text):
             if isinstance(item, str):
                 accumulated += item
+                answer_text += item
                 now = time.monotonic()
                 if now - last_render >= RENDER_INTERVAL:
                     bubble.update(accumulated)
@@ -148,11 +166,11 @@ class RagChatApp(App):
                     last_render = now
 
             elif isinstance(item, dict) and "sources" in item:
-                sources = item["sources"]
-                if sources:
+                sources_raw = item["sources"]
+                if sources_raw:
                     src_lines = "\n".join(
                         f"- `{s['file']}` ({s['score']})"
-                        for s in sources
+                        for s in sources_raw
                     )
                     accumulated += f"\n\n---\n**Sources:**\n{src_lines}"
 
@@ -175,6 +193,7 @@ class RagChatApp(App):
                 f"{stats['total_s']}s total"
             )
             await history.mount(Static(info, classes="bubble-stats"))
+            self._client.record_exchange(text, answer_text, sources_raw, stats)
 
         history.scroll_end(animate=False)
 

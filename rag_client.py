@@ -5,9 +5,11 @@ Does not import anything from textual.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import os
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import httpx
 
@@ -40,6 +42,8 @@ class RagClient:
             "CHAT_API_URL", "http://localhost:8000"
         )
         self.conversation_history: list[dict] = []
+        self.session_log: list[dict] = []
+        self.started_at = datetime.datetime.now()
         self._http = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(None, connect=5.0),
@@ -48,6 +52,40 @@ class RagClient:
     def clear_history(self) -> None:
         """Reset conversation history (used by /clear command)."""
         self.conversation_history.clear()
+
+    def record_exchange(
+        self,
+        question: str,
+        answer: str,
+        sources: list[dict],
+        stats: dict,
+    ) -> None:
+        """Append a completed exchange to the session log."""
+        self.session_log.append({
+            "ts": datetime.datetime.now().isoformat(timespec="seconds"),
+            "question": question,
+            "answer": answer,
+            "sources": sources,
+            "stats": stats,
+        })
+
+    def save_session(self, chats_dir: str = "chats") -> str:
+        """Write the session log to a JSON file. Returns the file path."""
+        path = Path(chats_dir)
+        path.mkdir(exist_ok=True)
+        model_slug = (
+            self.session_log[0]["stats"]["model"].replace(":", "-")
+            if self.session_log else "unknown"
+        )
+        ts = self.started_at.strftime("%Y-%m-%d_%H-%M-%S")
+        filepath = path / f"{ts}_{model_slug}.json"
+        data = {
+            "model": model_slug,
+            "started_at": self.started_at.isoformat(timespec="seconds"),
+            "exchanges": self.session_log,
+        }
+        filepath.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        return str(filepath)
 
     async def send_message(self, text: str) -> AsyncGenerator[str | dict, None]:
         """Send a message and stream the response.
