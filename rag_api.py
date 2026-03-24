@@ -221,13 +221,22 @@ def chat_stream(request: ChatRequest):
         )
 
         try:
+            t_start = time.monotonic()
+            t_first_token: float | None = None
+            token_count = 0
+
             streaming_response = chat_engine.stream_chat(
                 last_user_msg,
                 chat_history=chat_history,
             )
 
             for token in streaming_response.response_gen:
+                if t_first_token is None:
+                    t_first_token = time.monotonic()
+                token_count += 1
                 yield f"data: {json.dumps({'token': token})}\n\n"
+
+            t_end = time.monotonic()
 
             # Emit sources after all tokens
             sources = []
@@ -239,6 +248,17 @@ def chat_stream(request: ChatRequest):
                     seen.add(fname)
                     sources.append({"file": fname, "score": score})
             yield f"data: {json.dumps({'sources': sources})}\n\n"
+
+            # Emit generation stats for benchmarking / model comparison
+            eval_s = (t_end - t_first_token) if t_first_token else 0.0
+            total_s = t_end - t_start
+            yield f"data: {json.dumps({'stats': {
+                'model': config.LLM_MODEL,
+                'tokens': token_count,
+                'tokens_per_sec': round(token_count / eval_s, 1) if eval_s > 0 else 0,
+                'eval_s': round(eval_s, 2),
+                'total_s': round(total_s, 2),
+            }})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"

@@ -61,6 +61,12 @@ Screen {
     margin: 1 0 0 0;
 }
 
+.bubble-stats {
+    color: $text-muted;
+    margin: 0 0 1 2;
+    padding: 0;
+}
+
 Input {
     dock: bottom;
     margin: 0 1 1 1;
@@ -130,6 +136,7 @@ class RagChatApp(App):
         accumulated = ""
         last_render = time.monotonic()
         RENDER_INTERVAL = 0.05  # 50ms → ~20 fps
+        stats: dict | None = None
 
         async for item in self._client.send_message(text):
             if isinstance(item, str):
@@ -149,12 +156,26 @@ class RagChatApp(App):
                     )
                     accumulated += f"\n\n---\n**Sources:**\n{src_lines}"
 
+            elif isinstance(item, dict) and "stats" in item:
+                stats = item["stats"]
+
             elif isinstance(item, dict) and "error" in item:
                 bubble.remove_class("bubble-assistant")
                 bubble.add_class("bubble-error")
                 accumulated = f"**Error:** {item['error']}"
 
         bubble.update(accumulated)
+
+        if stats:
+            info = (
+                f"{stats['model']}  ·  "
+                f"{stats['tokens']} tokens  ·  "
+                f"{stats['tokens_per_sec']} tok/s  ·  "
+                f"{stats['eval_s']}s gen  ·  "
+                f"{stats['total_s']}s total"
+            )
+            await history.mount(Static(info, classes="bubble-stats"))
+
         history.scroll_end(animate=False)
 
 

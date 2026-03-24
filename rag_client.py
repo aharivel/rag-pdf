@@ -80,6 +80,8 @@ class RagClient:
                         yield parsed["token"]
                     elif "sources" in parsed:
                         yield parsed  # {"sources": [...]}
+                    elif "stats" in parsed:
+                        yield parsed  # {"stats": {...}}
                     elif "error" in parsed:
                         yield parsed  # {"error": "..."}
                         break
