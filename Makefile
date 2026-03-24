@@ -1,4 +1,10 @@
-.PHONY: help setup check index update-index start query clean mcp-config chat test
+.PHONY: help setup check index update-index start query clean mcp-config chat test pull-model
+
+# Load .env so OLLAMA_LLM_URL is available to targets
+ifneq (,$(wildcard .env))
+  include .env
+  export
+endif
 
 PYTHON = .venv/bin/python
 PIP    = .venv/bin/pip
@@ -24,6 +30,9 @@ help:
 	@echo ""
 	@echo "  MCP (Claude Code integration)"
 	@echo "    make mcp-config     Print config snippet for ~/.claude/settings.json"
+	@echo ""
+	@echo "  Models"
+	@echo "    make pull-model MODEL=\"...\"  Pull a model into Ollama on the Windows PC"
 	@echo ""
 	@echo "  Maintenance"
 	@echo "    make clean          Delete the ChromaDB vector database"
@@ -87,6 +96,22 @@ chat:
 # ── Tests ─────────────────────────────────────────────────────────────────────
 test:
 	$(PYTHON) -m pytest tests/ -v
+
+# ── Model management ──────────────────────────────────────────────────────────
+pull-model:
+ifndef MODEL
+	@echo "Usage: make pull-model MODEL=\"<name>\""
+	@echo ""
+	@echo "Examples:"
+	@echo "  make pull-model MODEL=\"hf.co/unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF:Q4_K_M\""
+	@echo "  make pull-model MODEL=\"llama3.2:3b\""
+else
+	@echo "Pulling $(MODEL) into Ollama at $(OLLAMA_LLM_URL) ..."
+	curl -N -X POST $(OLLAMA_LLM_URL)/api/pull \
+	  -H "Content-Type: application/json" \
+	  -d "{\"name\": \"$(MODEL)\"}"
+	@echo ""
+endif
 
 # ── Maintenance ───────────────────────────────────────────────────────────────
 clean:
