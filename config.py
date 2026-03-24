@@ -14,6 +14,7 @@ EMBED_MODEL       = os.getenv("EMBED_MODEL", "nomic-embed-text-v2-moe")
 CHROMA_PATH     = os.getenv("CHROMA_PATH", str(_HERE / "chroma_db"))
 CHROMA_COLLECTION = "pdf_knowledge"
 TOP_K           = int(os.getenv("TOP_K", "5"))
+OLLAMA_NUM_CTX  = int(os.getenv("OLLAMA_NUM_CTX", "4096"))
 CHUNK_SIZE       = 512
 CHUNK_OVERLAP    = 100
 EMBED_BATCH_SIZE = 10

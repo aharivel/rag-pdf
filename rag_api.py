@@ -52,6 +52,7 @@ def get_index():
             model=config.LLM_MODEL,
             base_url=config.OLLAMA_LLM_URL,
             request_timeout=120.0,
+            context_window=config.OLLAMA_NUM_CTX,
         )
 
         chroma_client = chromadb.PersistentClient(path=config.CHROMA_PATH)
