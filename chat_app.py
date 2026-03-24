@@ -16,7 +16,7 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import VerticalScroll
-from textual.widgets import Header, Input, Static
+from textual.widgets import Header, Input, Markdown, Static
 
 from rag_client import RagClient
 
@@ -112,7 +112,7 @@ class RagChatApp(App):
         await history.mount(Static(f"[bold]You[/bold]", classes="bubble-label"))
         await history.mount(Static(text, classes="bubble-user"))
         await history.mount(Static("[bold]Assistant[/bold]", classes="bubble-label"))
-        assistant_bubble = Static("", classes="bubble-assistant")
+        assistant_bubble = Markdown("", classes="bubble-assistant")
         await history.mount(assistant_bubble)
 
         history.scroll_end(animate=False)
@@ -125,7 +125,7 @@ class RagChatApp(App):
         await history.remove_children()
 
     @work
-    async def _stream(self, text: str, bubble: Static) -> None:
+    async def _stream(self, text: str, bubble: Markdown) -> None:
         history = self.query_one("#history", VerticalScroll)
         accumulated = ""
         last_render = time.monotonic()
@@ -144,15 +144,15 @@ class RagChatApp(App):
                 sources = item["sources"]
                 if sources:
                     src_lines = "\n".join(
-                        f"  • [cyan]{s['file']}[/cyan] ({s['score']})"
+                        f"- `{s['file']}` ({s['score']})"
                         for s in sources
                     )
-                    accumulated += f"\n\n[dim]Sources:[/dim]\n{src_lines}"
+                    accumulated += f"\n\n---\n**Sources:**\n{src_lines}"
 
             elif isinstance(item, dict) and "error" in item:
                 bubble.remove_class("bubble-assistant")
                 bubble.add_class("bubble-error")
-                accumulated = f"[bold red]Error:[/bold red] {item['error']}"
+                accumulated = f"**Error:** {item['error']}"
 
         bubble.update(accumulated)
         history.scroll_end(animate=False)
