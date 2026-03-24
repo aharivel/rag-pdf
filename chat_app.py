@@ -11,15 +11,41 @@ Architecture:
 from __future__ import annotations
 
 import time
+from functools import partial
 
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.command import Hit, Hits, Provider
 from textual.containers import VerticalScroll
 from textual.widgets import Header, Input, Markdown, Static
 
 from rag_client import RagClient
 
+
+# ── Command palette — model switcher ──────────────────────────────────────────
+
+class ModelProvider(Provider):
+    """Lists available Ollama models in the command palette (Ctrl+P)."""
+
+    async def startup(self) -> None:
+        self._models = await self.app._client.list_models()
+
+    async def search(self, query: str) -> Hits:
+        matcher = self.matcher(query)
+        for name in self._models:
+            score = matcher.match(name)
+            if score > 0:
+                yield Hit(
+                    score,
+                    matcher.highlight(name),
+                    partial(self.app._select_model, name),
+                    text=name,
+                    help="Switch to this model",
+                )
+
+
+# ── CSS ───────────────────────────────────────────────────────────────────────
 
 CSS = """
 Screen {
@@ -79,14 +105,22 @@ class RagChatApp(App):
 
     TITLE = "PDF RAG Chat"
     CSS = CSS
+    COMMANDS = App.COMMANDS | {ModelProvider}
 
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True),
+        Binding("ctrl+p", "command_palette", "Models", show=True),
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self._client = RagClient()
+
+    async def _select_model(self, model: str) -> None:
+        """Called by ModelProvider when the user picks a model."""
+        self._client.set_model(model)
+        self.sub_title = model
+        self.notify(f"Switched to {model}", timeout=4)
 
     def compose(self) -> ComposeResult:
         yield Header()

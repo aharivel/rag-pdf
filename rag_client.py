@@ -44,6 +44,7 @@ class RagClient:
         self.conversation_history: list[dict] = []
         self.session_log: list[dict] = []
         self.started_at = datetime.datetime.now()
+        self.selected_model: str | None = None  # None = server uses config.LLM_MODEL
         self._http = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(None, connect=5.0),
@@ -52,6 +53,19 @@ class RagClient:
     def clear_history(self) -> None:
         """Reset conversation history (used by /clear command)."""
         self.conversation_history.clear()
+
+    def set_model(self, model: str) -> None:
+        """Switch the LLM model for subsequent requests."""
+        self.selected_model = model
+
+    async def list_models(self) -> list[str]:
+        """Return available models from the Ollama LLM server."""
+        try:
+            resp = await self._http.get("/v1/ollama/models", timeout=5.0)
+            resp.raise_for_status()
+            return resp.json().get("models", [])
+        except Exception:
+            return []
 
     def record_exchange(
         self,
@@ -99,10 +113,14 @@ class RagClient:
         accumulated = ""
 
         try:
+            body: dict = {"messages": self.conversation_history}
+            if self.selected_model:
+                body["llm_model"] = self.selected_model
+
             async with self._http.stream(
                 "POST",
                 "/v1/chat/completions/stream",
-                json={"messages": self.conversation_history},
+                json=body,
             ) as response:
                 if response.status_code != 200:
                     self.conversation_history.pop()  # roll back before yield

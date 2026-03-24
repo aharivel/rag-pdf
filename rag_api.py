@@ -108,6 +108,7 @@ class ChatRequest(BaseModel):
     messages: List[Message]
     stream: Optional[bool] = False
     temperature: Optional[float] = None
+    llm_model: Optional[str] = None  # overrides config.LLM_MODEL if set
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -127,6 +128,19 @@ def health():
         "embed_model": config.EMBED_MODEL,
         "pdf_dir": config.PDF_DIR,
     }
+
+
+@app.get("/v1/ollama/models")
+def list_ollama_models():
+    """Return models available on the Ollama LLM server."""
+    import httpx as _httpx
+    try:
+        resp = _httpx.get(f"{config.OLLAMA_LLM_URL}/api/tags", timeout=5.0)
+        resp.raise_for_status()
+        names = [m["name"] for m in resp.json().get("models", [])]
+        return {"models": names}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Cannot reach Ollama: {e}")
 
 
 @app.get("/v1/models")
@@ -207,6 +221,8 @@ def chat_stream(request: ChatRequest):
         [{"role": m.role, "content": m.content} for m in request.messages]
     )
 
+    active_model = request.llm_model or config.LLM_MODEL
+
     def generate():
         try:
             index = get_index()
@@ -215,10 +231,21 @@ def chat_stream(request: ChatRequest):
             yield "data: [DONE]\n\n"
             return
 
+        llm_override = (
+            Ollama(
+                model=active_model,
+                base_url=config.OLLAMA_LLM_URL,
+                request_timeout=120.0,
+                context_window=config.OLLAMA_NUM_CTX,
+            )
+            if request.llm_model else None
+        )
+
         chat_engine = index.as_chat_engine(
             chat_mode="condense_plus_context",
             streaming=True,
             similarity_top_k=config.TOP_K,
+            **({"llm": llm_override} if llm_override else {}),
         )
 
         try:
@@ -254,7 +281,7 @@ def chat_stream(request: ChatRequest):
             eval_s = (t_end - t_first_token) if t_first_token else 0.0
             total_s = t_end - t_start
             yield f"data: {json.dumps({'stats': {
-                'model': config.LLM_MODEL,
+                'model': active_model,
                 'tokens': token_count,
                 'tokens_per_sec': round(token_count / eval_s, 1) if eval_s > 0 else 0,
                 'eval_s': round(eval_s, 2),
