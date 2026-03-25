@@ -160,6 +160,7 @@ class RagChatApp(App):
     def __init__(self) -> None:
         super().__init__()
         self._client = RagClient()
+        self._last_answer: str = ""
 
     async def _select_model(self, model: str) -> None:
         """Called by ModelProvider when the user picks a model."""
@@ -170,7 +171,7 @@ class RagChatApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield VerticalScroll(id="history")
-        yield Input(placeholder="Ask your PDF library… (/clear  /save  /mode  /quit)")
+        yield Input(placeholder="Ask your PDF library… (/clear  /save  /mode  /snip  /quit)")
 
     def on_mount(self) -> None:
         self.query_one(Input).focus()
@@ -193,6 +194,9 @@ class RagChatApp(App):
             return
         if text.startswith("/mode"):
             await self._do_mode(text)
+            return
+        if text.startswith("/snip"):
+            await self._do_snip(text)
             return
 
         await self._submit_query(text)
@@ -236,6 +240,26 @@ class RagChatApp(App):
         path = self._client.save_session()
         self.notify(f"Saved → {path}", timeout=6)
 
+    async def _do_snip(self, text: str) -> None:
+        """Save the last assistant answer's first code block to snip."""
+        parts = text.split(maxsplit=2)  # ["/snip", category, headline...]
+        if len(parts) < 3:
+            self.notify("Usage: /snip <category> <headline>", severity="warning")
+            return
+        category, headline = parts[1], parts[2].strip("\"'")
+        if not self._last_answer:
+            self.notify("No answer to save yet.", severity="warning")
+            return
+        lang, code = _extract_first_code_block(self._last_answer)
+        if not code:
+            self.notify("No code block found in last answer.", severity="warning")
+            return
+        ok = _call_snip(category, headline, code, lang)
+        if ok:
+            self.notify(f"Snippet saved → {category} / \"{headline}\"", timeout=5)
+        else:
+            self.notify("snip not found — is it installed?", severity="error")
+
     async def _do_quit(self) -> None:
         if self._client.session_log:
             self._client.save_session()
@@ -278,7 +302,31 @@ class RagChatApp(App):
                 bubble.add_class("bubble-error")
                 accumulated = f"**Error:** {item['error']}"
 
-        bubble.update(accumulated)
+        # Strip <snip> tags: update display with clean text, auto-save each snippet
+        clean_accumulated, snips = _extract_snips(accumulated)
+        clean_answer, _ = _extract_snips(answer_text)  # strip from log too
+
+        if snips:
+            bubble.update(clean_accumulated)
+            for s in snips:
+                ok = _call_snip(s["category"], s["headline"], s["code"], s["lang"])
+                if ok:
+                    self.notify(
+                        f"Snippet saved → {s['category']} / \"{s['headline']}\"",
+                        timeout=5,
+                    )
+                else:
+                    self.notify("snip not found — install snip CLI", severity="warning")
+        else:
+            bubble.update(accumulated)
+
+        # Only update _last_answer on successful (non-error) streams
+        if clean_answer and "**Error:**" not in clean_answer:
+            self._last_answer = clean_answer
+
+        # Use clean versions for the session log
+        accumulated = clean_accumulated
+        answer_text = clean_answer
 
         if stats:
             info = (
