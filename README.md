@@ -72,7 +72,43 @@ make clean          # wipe the database (needed after removing folders)
 
 ## UI
 
-The RAG API exposes an OpenAI-compatible endpoint at `http://localhost:8000/v1`.
+Two ways to interact with the RAG pipeline:
+
+### Terminal chat app (recommended)
+
+A full-featured TUI built with [Textual](https://github.com/Textualize/textual):
+
+```bash
+make start   # start the RAG API on port 8000 (keep running)
+make chat    # open the terminal chat app
+```
+
+**In-chat commands:**
+
+| Command | Description |
+|---|---|
+| `/clear` | Clear the chat history and start a new session |
+| `/save` | Save the current session to a timestamped JSON file |
+| `/mode [name]` | Cycle through or set a specific chat mode (`condense_plus_context`, `context`, `simple`) |
+| `/snip <category> <headline>` | Save the last answer's first code block to the `snip` CLI |
+| `/quit` | Save session and exit |
+
+**Keyboard shortcuts:** `Ctrl+P` opens the model switcher (switch between Ollama models mid-session), `Q` quits.
+
+#### Snippet auto-save
+
+The LLM is instructed to wrap reusable commands and code blocks in `<snip>` tags. When it does, the tag is stripped from the display and the snippet is silently saved to [snip](https://github.com/aharivel/snip) with a toast notification. If `snip` is not installed the notification is shown as a warning instead.
+
+You can also save manually after any answer that contains a code block:
+
+```
+/snip linux "Check disk usage"
+/snip docker list-containers
+```
+
+### Open WebUI
+
+The RAG API also exposes an OpenAI-compatible endpoint at `http://localhost:8000/v1`.
 Any interface that supports OpenAI-style connections can use it — [Open WebUI](https://github.com/open-webui/open-webui) works particularly well.
 
 ## Tech stack
@@ -83,6 +119,7 @@ Any interface that supports OpenAI-style connections can use it — [Open WebUI]
 | [LlamaIndex](https://www.llamaindex.ai) | RAG pipeline — document loading, chunking, indexing, querying |
 | [ChromaDB](https://www.trychroma.com) | Local persistent vector database |
 | [FastAPI](https://fastapi.tiangolo.com) | OpenAI-compatible HTTP API layer |
+| [Textual](https://github.com/Textualize/textual) | Terminal UI framework for the chat app |
 | [qwen3:8b](https://ollama.com/library/qwen3) | Local LLM for answer generation |
 | [nomic-embed-text-v2-moe](https://ollama.com/library/nomic-embed-text) | Embedding model for semantic search |
 
