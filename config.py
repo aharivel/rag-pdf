@@ -38,15 +38,16 @@ PDF_BASE = os.getenv("PDF_BASE", "/home/youruser/Documents/pdf")
 
 # Folders to index — comment out any you don't want
 PDF_FOLDERS = [
-    f"{PDF_BASE}/AI",
-    f"{PDF_BASE}/go",
-    f"{PDF_BASE}/devops",
-    f"{PDF_BASE}/linux",
+    # f"{PDF_BASE}/AI",
+    # f"{PDF_BASE}/go",
+    # f"{PDF_BASE}/devops",
+    # f"{PDF_BASE}/linux",
     # f"{PDF_BASE}/virtualization",
     # f"{PDF_BASE}/networking",
     # f"{PDF_BASE}/hardware",
     # f"{PDF_BASE}/power-performance",
-    f"{PDF_BASE}/cheatsheets",
-    f"{PDF_BASE}/red-hat",
+    # f"{PDF_BASE}/cheatsheets",
+    # f"{PDF_BASE}/red-hat",
     # f"{PDF_BASE}/misc",
+    f"{PDF_BASE}/rhoso",
 ]
