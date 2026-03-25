@@ -45,6 +45,7 @@ class RagClient:
         self.session_log: list[dict] = []
         self.started_at = datetime.datetime.now()
         self.selected_model: str | None = None  # None = server uses config.LLM_MODEL
+        self.chat_mode: str = "condense_plus_context"
         self._http = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(None, connect=5.0),
@@ -57,6 +58,10 @@ class RagClient:
     def set_model(self, model: str) -> None:
         """Switch the LLM model for subsequent requests."""
         self.selected_model = model
+
+    def set_mode(self, mode: str) -> None:
+        """Switch the chat engine mode for subsequent requests."""
+        self.chat_mode = mode
 
     async def list_models(self) -> list[str]:
         """Return available models from the Ollama LLM server."""
@@ -113,7 +118,7 @@ class RagClient:
         accumulated = ""
 
         try:
-            body: dict = {"messages": self.conversation_history}
+            body: dict = {"messages": self.conversation_history, "chat_mode": self.chat_mode}
             if self.selected_model:
                 body["llm_model"] = self.selected_model
 
