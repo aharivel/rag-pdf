@@ -57,7 +57,7 @@ def index_pdfs(update_mode: bool = False):
         f"[bold blue]PDF RAG Indexer[/bold blue]\n"
         f"Folders    :\n{folders_display}\n"
         f"ChromaDB   : {config.CHROMA_PATH}\n"
-        f"Ollama     : {config.OLLAMA_BASE_URL}\n"
+        f"Ollama     : {config.OLLAMA_EMBED_URL}\n"
         f"LLM model  : {config.LLM_MODEL}\n"
         f"Embed model: {config.EMBED_MODEL}\n"
         f"Mode       : {'update (new files only)' if update_mode else 'full re-index'}",
