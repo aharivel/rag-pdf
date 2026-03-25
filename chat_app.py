@@ -10,6 +10,9 @@ Architecture:
 """
 from __future__ import annotations
 
+import re
+import shutil
+import subprocess
 import time
 from functools import partial
 
@@ -21,6 +24,48 @@ from textual.containers import VerticalScroll
 from textual.widgets import Header, Input, Markdown, Static
 
 from rag_client import RagClient
+
+
+# ── Snip helpers ──────────────────────────────────────────────────────────────
+
+_SNIP_RE = re.compile(
+    r'<snip\s+category="([^"]+)"\s+headline="([^"]+)"(?:\s+lang="([^"]*)")?>'
+    r'(.*?)</snip>',
+    re.DOTALL,
+)
+_CODE_BLOCK_RE = re.compile(r'```(\w*)\n(.*?)```', re.DOTALL)
+
+
+def _extract_snips(text: str) -> tuple[str, list[dict]]:
+    """Strip <snip> tags from text. Returns (clean_text, list_of_snip_dicts)."""
+    snips = []
+    for m in _SNIP_RE.finditer(text):
+        snips.append({
+            "category": m.group(1),
+            "headline": m.group(2),
+            "lang": m.group(3) or "",
+            "code": m.group(4).strip(),
+        })
+    return _SNIP_RE.sub("", text).strip(), snips
+
+
+def _extract_first_code_block(text: str) -> tuple[str, str]:
+    """Return (lang, code) of the first fenced code block, or ('', '') if none found."""
+    m = _CODE_BLOCK_RE.search(text)
+    if m:
+        return m.group(1), m.group(2).strip()
+    return "", ""
+
+
+def _call_snip(category: str, headline: str, code: str, lang: str) -> bool:
+    """Call `snip add`. Returns True on success, False if snip not found or failed."""
+    snip_bin = shutil.which("snip")
+    if not snip_bin:
+        return False
+    cmd = [snip_bin, "add", category, headline, "--snippet", code]
+    if lang:
+        cmd += ["--lang", lang]
+    return subprocess.run(cmd, capture_output=True).returncode == 0
 
 
 # ── Command palette — model switcher ──────────────────────────────────────────
@@ -125,7 +170,7 @@ class RagChatApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield VerticalScroll(id="history")
-        yield Input(placeholder="Ask your PDF library… (/clear  /save  /quit)")
+        yield Input(placeholder="Ask your PDF library… (/clear  /save  /mode  /quit)")
 
     def on_mount(self) -> None:
         self.query_one(Input).focus()
@@ -146,6 +191,9 @@ class RagChatApp(App):
         if text == "/quit":
             await self._do_quit()
             return
+        if text.startswith("/mode"):
+            await self._do_mode(text)
+            return
 
         await self._submit_query(text)
 
@@ -161,6 +209,20 @@ class RagChatApp(App):
         history.scroll_end(animate=False)
 
         self._stream(text, assistant_bubble)
+
+    _MODES = ["condense_plus_context", "context", "simple"]
+
+    async def _do_mode(self, text: str) -> None:
+        parts = text.split(maxsplit=1)
+        if len(parts) == 2 and parts[1] in self._MODES:
+            mode = parts[1]
+        else:
+            # cycle to next mode
+            current = self._client.chat_mode
+            idx = self._MODES.index(current) if current in self._MODES else 0
+            mode = self._MODES[(idx + 1) % len(self._MODES)]
+        self._client.set_mode(mode)
+        self.notify(f"Chat mode → {mode}", timeout=5)
 
     async def _do_clear(self) -> None:
         self._client.clear_history()
