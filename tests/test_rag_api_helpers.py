@@ -28,6 +28,14 @@ def test_build_chat_history_one_exchange():
     assert last == "How does it handle packets?"
 
 
+def test_snip_system_prompt_contains_tag_instruction():
+    from rag_api import SNIP_SYSTEM_PROMPT
+    assert "<snip" in SNIP_SYSTEM_PROMPT
+    assert "category=" in SNIP_SYSTEM_PROMPT
+    assert "headline=" in SNIP_SYSTEM_PROMPT
+    assert len(SNIP_SYSTEM_PROMPT) > 50  # not accidentally empty
+
+
 def test_build_chat_history_preserves_order():
     """History items appear in the same order as the input messages."""
     from rag_api import _build_chat_history

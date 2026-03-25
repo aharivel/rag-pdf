@@ -27,6 +27,17 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 
 import config
 
+SNIP_SYSTEM_PROMPT = (
+    "When your response contains a command or code block worth saving as a "
+    "reusable snippet, wrap it with:\n"
+    "<snip category=\"CATEGORY\" headline=\"HEADLINE\" lang=\"LANG\">\n"
+    "the code here\n"
+    "</snip>\n"
+    "Only tag concrete, reusable commands or code blocks — not prose "
+    "explanations. Use short lowercase category names like: linux, bash, "
+    "python, go, devops, git, docker, kubernetes. Omit lang if not applicable."
+)
+
 app = FastAPI(title="PDF RAG API", version="1.0.0")
 
 app.add_middleware(
@@ -109,6 +120,7 @@ class ChatRequest(BaseModel):
     stream: Optional[bool] = False
     temperature: Optional[float] = None
     llm_model: Optional[str] = None  # overrides config.LLM_MODEL if set
+    chat_mode: Optional[str] = "condense_plus_context"  # condense_plus_context | context | simple
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -241,10 +253,12 @@ def chat_stream(request: ChatRequest):
             if request.llm_model else None
         )
 
+        mode = request.chat_mode or "condense_plus_context"
         chat_engine = index.as_chat_engine(
-            chat_mode="condense_plus_context",
+            chat_mode=mode,  # type: ignore[arg-type]
             streaming=True,
             similarity_top_k=config.TOP_K,
+            system_prompt=SNIP_SYSTEM_PROMPT,
             **({"llm": llm_override} if llm_override else {}),
         )
 
